@@ -78,7 +78,8 @@
              riak_core_web,
              riak_core_wm_urlmap,
              supervisor_pre_r14b04,
-             vclock
+             vclock,
+             dottedvv
             ]},
   {registered, []},
   {included_applications, [folsom]},
