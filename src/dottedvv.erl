@@ -5,7 +5,7 @@
 %%
 %% @author    Ricardo Tomé Gonçalves <tome.wave@gmail.com>
 %%
-%% @copyright 2012 Ricardo Tomé Gonçalves
+%% @copyright 2012 Ricardo Tomé Gonçalves 
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -21,10 +21,10 @@
 %% specific language governing permissions and limitations
 %% under the License.
 %%
-%% @doc
+%% @doc  
 %%  A simple Erlang implementation of Dotted Version Vectors.
 %%  Some functions were adapted from the vclock.erl file (for Version Vectors) of Basho's Riak.
-%% @end
+%% @end  
 %%
 %% @reference Dotted Version Vectors: Logical Clocks for Optimistic Replication
 %% URL: http://arxiv.org/abs/1011.5808
@@ -32,6 +32,8 @@
 %%-------------------------------------------------------------------
 
 -module(dottedvv).
+
+-author('Ricardo Tome Goncalves <tome@di.uminho.pt>').
 
 -export([fresh/0,strict_descends/2,descends/2,sync/2,update/3,equal/2,increment/2,merge/1]).
 
@@ -83,18 +85,18 @@ fresh() -> {}.
 % Id = Id that will be incremented (Replica id)
 -spec update(Sc :: [dottedvv()], Sr :: [dottedvv()], IDr :: id()) -> dottedvv().
 
-update(Sc, [{}], Id) -> update(Sc,{},Id);
 update(Sc, Sr, Id) -> update2(merge(Sc), Sr, Id).
 update2({}, {}, Id) -> {[], {Id, {1 , new_timestamp()}}};
+update2({}, Sr, Id) -> 
+    {Max, _TS2} = max_counter(Id, Sr),
+    Dot = {Id, {Max + 1 , new_timestamp()}},
+    {[], Dot};
 update2(Sc, Sr, Id) ->
-    Sc2 = case Sc of
-        {} -> [];
-        {S, null} -> S
-    end,
+    {Sc2, null} = Sc,
     {Max, _TS2} = max_counter(Id, Sr),
     Dot = {Id, {Max + 1 , new_timestamp()}},
     {Sc2, Dot}.
-
+    
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -125,11 +127,11 @@ strict_descends(A, B) -> (equal(A, B) == false) andalso descends2(A, B).
 descends2({V,{I,{C,TA}}}, {V,{I,{C,TB}}}) -> (TA > TB);
 descends2({VA,_DA}, {_VB,{IB,{CB,_TB}}}) ->
     case lists:keyfind(IB, 1, VA) of
-        {_, {CA, _TA}} ->
+        {_, {CA, _TA}} ->    
             (CA >= CB); % orelse ((CA =:= CB) and (TA > TB));
         false -> false %% they are not equal, as it was tested in strict_descends
     end;
-descends2(A, B) ->
+descends2(A, B) -> 
     {VA, null} = merge(A),
     {VB, null} = merge(B),
     descends3(VA, VB).
@@ -146,19 +148,19 @@ descends3(Va, Vb) ->
         end.
 
 
-
+            
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % @doc Merges the set of clocks, removing redundant information (old entries)
-% We assume that all clocks together have no "holes"
+% We assume that all clocks togethor have no "holes"
 -spec merge([dottedvv()]) -> dottedvv() | {}.
 merge([]) -> {};
 merge({}) -> {};
 merge([{}|S]) -> merge(S);
 merge(S={_,_}) -> merge_dot(S);
 merge([S={_,_}]) -> merge_dot(S);
-merge(S) ->
+merge(S) -> 
     [First|Rest] = lists:flatten(S),
     merge(Rest, sort_and_merge_dot(First)).
 
@@ -186,10 +188,10 @@ merge(V=[{Node1,{Ctr1,TS1}=CT1}=NCT1|VClock],
 
 
 %% AUX
-sort_and_merge_dot(S) ->
+sort_and_merge_dot(S) -> 
     {S2, null} = merge_dot(S),
     lists:keysort(1, S2).
-
+    
 
 %% AUX 2
 merge_dot({S, null}) -> {S, null};
@@ -201,9 +203,9 @@ merge_dot({S, {Id, C}}) -> {lists:keystore(Id, 1, S, {Id, C}), null}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%% sync(S, {u}) -> S
-% @doc  Takes two clock sets and returns a clock set.
-%       It returns a set of concurrent clocks,
-%       each belonging to one of the sets, and that
+% @doc  Takes two clock sets and returns a clock set. 
+%       It returns a set of concurrent clocks, 
+%       each belonging to one of the sets, and that 
 %       together cover both sets while discarding obsolete knowledge.
 -spec sync([dottedvv()], [dottedvv()]) -> [dottedvv()].
 sync({}, S) -> S;
@@ -305,7 +307,7 @@ equal(_, {}) -> false;
 equal({SA,DA}, {SB,DB}) -> DA =:= DB andalso lists:sort(SA) =:= lists:sort(SB);
 equal([_], {_,_}) -> false;
 equal({_,_}, [_]) -> false;
-equal(A, B) ->
+equal(A, B) -> 
     contains(A, B) andalso contains(B, A).
 
 
@@ -358,7 +360,7 @@ example_test() ->
 update_test() ->
     C0 = fresh(),
     C1 = increment(a, C0),
-    {[], {a,{1,_}}} = C1,
+    {[], {a,{1,_}}} = C1, 
     C2 = increment(a, C1),
     {[{a,{1,_}}], {a,{2,_}}} = C2,
     C3 = increment(a, C2),
@@ -369,6 +371,8 @@ update_test() ->
     {[{a,{4,_}}], {b,{1,_}}} = C8a,
     C8b = update(C7, C8a, b),
     {[{a,{4,_}}], {b,{2,_}}} = C8b,
+    C8z = update({}, C8a, b),
+    {[], {b,{2,_}}} = C8z,
     C8c = update(C7, [C8a, C8b], b),
     {[{a,{4,_}}], {b,{3,_}}} = C8c,
     C8d = update(C7, [C8a, C8b, C8c], b),
@@ -380,7 +384,7 @@ update_test() ->
     C8f = update(C8e, [C8a, C8b, C8c, C8d, C8e], b),
     {[{a,{5,_}},{b,{5,_}}], {b,{6,_}}} = C8f,
     C9 = update(C8f, [C8a, C8b, C8c, C8d, C8f], a),
-    {[{a,{5,_}},{b,{6,_}}], {a,{6,_}}} = C9,
+    {[{a,{5,_}},{b,{6,_}}], {a,{6,_}}} = C9, 
     ok.
 
 
@@ -541,7 +545,7 @@ equal_test() ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% doc Unit Tests for others functions
+% doc Unit Tests for others fucntions
 
 %% TODO
 
