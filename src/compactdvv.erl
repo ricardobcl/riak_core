@@ -38,6 +38,7 @@
             sync/2,
             syncupdate/4,
             syncupdate/3,
+            join/1,
             lww/1,
             lww/2,
             strict_descendant/2,
