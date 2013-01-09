@@ -47,26 +47,14 @@
             get_last/1,
             get_last_value/1,
             get_values/1,
-            set_value/2
+            set_value/2,
+            map_values/2
         ]).
--export_type([clock/0, base/0, timestamp/0]).
+-export_type([clock/0, base/0]).
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
 -endif.
-
-
-
-%%---------------------------------------------------------------------
-%% Data Type: person
-%% where:
-%%    name: A string (default is undefined).
-%%    age: An integer (default is undefined).
-%%    phone: A list of integers (default is []).
-%%    dict:     A dictionary containing various information about the person. 
-%%       A {Key, Value} list (default is the empty list).
-%%----------------------------------------------------------------------
-%-record(person, {name, age, phone = [], dict = []}).
 
 
 %% STRUCTURE
@@ -74,17 +62,6 @@
 -type base() :: {id(), counter(), list()}.
 -type id() :: any().
 -type counter() :: non_neg_integer().
--type timestamp() :: non_neg_integer().
-
-
-
-%%----------------------------------------------------------------------
-%% Function: new/1
-%% Purpose: Get various information from a process.
-%% Args:   Option is normal|all.
-%% Returns: A list of {Key, Value} 
-%%     or {error, Reason} (if the process is dead)
-%%----------------------------------------------------------------------
 
 -spec new() -> clock().
 new() -> new([]).
@@ -95,13 +72,6 @@ new(L) -> [{null, 0, L}].
 -spec new(id(), list()) -> clock().
 new(I,L) -> [{I, 0, L}].
 
-%%----------------------------------------------------------------------
-%% Function: get_server_statistics/2
-%% Purpose: Synchronize the 1st with the 2nd clock, and incremnt the 1st.
-%% Args:   Option is normal|all.
-%% Returns: A list of {Key, Value} 
-%%     or {error, Reason} (if the process is dead)
-%%----------------------------------------------------------------------
 -spec syncupdate(clock(), clock(), id(), any()) -> clock().
 syncupdate(Cc,Cr,R,V) -> event(sync(join(Cc),Cr),R,V).
 
@@ -114,7 +84,18 @@ syncupdate(C,R,V) -> event(join(C),R,V).
 sync(A,B) -> 
     Eq = [ {R1,max(N1,N2),merge(N1,L1,N2,L2)} || {R2,N2,L2} <- B, {R1,N1,L1} <- A, R1 =:= R2],
     K = proplists:get_keys(Eq),
-    Eq ++ sync_aux(K,A) ++ sync_aux(K,B).
+    R = Eq ++ sync_aux(K,A) ++ sync_aux(K,B),
+    %% order (descending) clocks by the number of values, so the 1st has the most values
+    lists:sort(fun compare_values_length/2, R). 
+
+-spec compare_values_length(base(), base()) -> boolean().
+compare_values_length({I1,_,L1},{I2,_,L2}) -> 
+    if 
+        length(L1) < length(L2) -> false;
+        length(L1) > length(L2) -> true;
+        length(L1) == length(L2) -> I1 < I2
+    end.
+
 
 sync_aux([],Acc) -> Acc;
 sync_aux([H|T],Acc) ->
@@ -215,6 +196,9 @@ set_value(Clock,V) ->
     [{I,C,[]}|T] = join(Clock),
     [{I,C-1,[V]}|T].
 
+-spec map_values(fun ((any()) -> any()), clock()) -> clock().
+map_values(F,Cl) -> [ {I,C,lists:map(F,V)} || {I,C,V} <- Cl].
+
 
 
 %% ===================================================================
@@ -253,7 +237,9 @@ event_test() ->
     ok.
 
 sync_test() ->
+    X = [{x,1,[]}],
     A = new(a,[v1]),
+    Y = new(b,[v2]),
     A1 = syncupdate(A,a,v2),
     R1 = sync(A,A1),
     R2 = sync(A1,A),
@@ -262,7 +248,13 @@ sync_test() ->
     A2b = syncupdate(A1,c,v3),
     R3 = sync(A2b,A2a),
     ?assertEqual(lists:sort(R3), [{a,2,[]},{b,0,[v3]},{c,0,[v3]}]),
-    ?assertEqual(lists:sort(R3), sync([A2b,A2a])),
+    ?assertEqual(lists:sort(R3), lists:sort(sync([A2b,A2a]))),
+    ?assertEqual(sync(X,A), [{a,0,[v1]},{x,1,[]}]), %% first clock MUST have a value!
+    ?assertEqual(sync(X,A), sync(A,X)),
+    %% order by id when length of values is the same
+    ?assertEqual(sync(A,Y), [{a,0,[v1]},{b,0,[v2]}]),
+    ?assertEqual(sync(Y,A), sync(A,Y)), 
+
     ok.
 
 lww_test() ->
@@ -314,6 +306,11 @@ get_set_test() ->
     ?assertEqual(get_values(A), [v0,v5,v3]),
     ?assertEqual(set_value(A,v9), [{a,3,[v9]},{b,0,[]},{c,1,[]}]),
     ?assertEqual(set_value([{null,0,[v1]}],v9), [{null,0,[v9]}]),
+    ok.
+
+map_values_test() ->
+    A = [{a,2,[5,0]},{b,0,[]},{c,0,[2]}],
+    ?assertEqual(map_values(fun (X) -> X*X end,A), [{a,2,[25,0]},{b,0,[]},{c,0,[4]}]),
     ok.
 
 
