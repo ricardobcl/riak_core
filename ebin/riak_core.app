@@ -79,7 +79,7 @@
              riak_core_wm_urlmap,
              supervisor_pre_r14b04,
              vclock,
-             compactdvv
+             dvvset
             ]},
   {registered, []},
   {included_applications, [folsom]},
