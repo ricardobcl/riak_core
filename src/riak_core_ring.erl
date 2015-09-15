@@ -137,6 +137,8 @@
 
 -export_type([riak_core_ring/0]).
 
+-include("riak_core.hrl").
+
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
 -endif.
@@ -147,7 +149,7 @@
     vclock   :: vclock:vclock() | undefined, % for this chstate object, entries are
                                  % {Node, Ctr}
     chring   :: chash:chash(),   % chash ring of {IndexAsInt, Node} mappings
-    meta     :: dict() | undefined,  % dict of cluster-wide other data (primarily
+    meta     :: riak_core_dict() | undefined,  % dict of cluster-wide other data (primarily
                                  % bucket N-value, etc)
 
     clustername :: {term(), term()},
@@ -350,7 +352,7 @@ fresh(RingSize, NodeName) ->
     VClock=vclock:increment(NodeName, vclock:fresh()),
     GossipVsn = riak_core_gossip:gossip_version(),
     ?CHSTATE{nodename=NodeName,
-             clustername={NodeName, erlang:now()},
+             clustername={NodeName, erlang:unique_integer([positive])},
              members=[{NodeName, {valid, VClock, [{gossip_vsn, GossipVsn}]}}],
              chring=chash:fresh(RingSize, NodeName),
              next=[],

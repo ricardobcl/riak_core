@@ -127,6 +127,14 @@
          mem_levels/1]).
 -export([compare2/4]).
 
+-ifdef(namespaced_types).
+-type hashtree_dict() :: dict:dict().
+-type hashtree_array() :: array:array().
+-else.
+-type hashtree_dict() :: dict().
+-type hashtree_array() :: array().
+-endif.
+
 -ifdef(TEST).
 -export([local_compare/2]).
 -export([run_local/0,
@@ -179,13 +187,13 @@
                 segments       :: pos_integer(),
                 width          :: pos_integer(),
                 mem_levels     :: integer(),
-                tree           :: dict(),
+                tree           :: hashtree_dict(),
                 ref            :: term(),
                 path           :: string(),
                 itr            :: term(),
                 write_buffer   :: [{put, binary(), binary()} | {delete, binary()}],
                 write_buffer_count :: integer(),
-                dirty_segments :: array()
+                dirty_segments :: hashtree_array()
                }).
 
 -record(itr_state, {itr                :: term(),
@@ -525,7 +533,7 @@ new_segment_store(Opts, State) ->
     DataDir = case proplists:get_value(segment_path, Opts) of
                   undefined ->
                       Root = "/tmp/anti/level",
-                      <<P:128/integer>> = md5(term_to_binary({erlang:now(), make_ref()})),
+                      <<P:128/integer>> = md5(term_to_binary({erlang:timestamp(), make_ref()})),
                       filename:join(Root, integer_to_list(P));
                   SegmentPath ->
                       SegmentPath
@@ -542,7 +550,7 @@ new_segment_store(Opts, State) ->
     %% flushed to disk at once when under a heavy uniform load.
     WriteBufferMin = proplists:get_value(write_buffer_size_min, Config, DefaultWriteBufferMin),
     WriteBufferMax = proplists:get_value(write_buffer_size_max, Config, DefaultWriteBufferMax),
-    {Offset, _} = random:uniform_s(1 + WriteBufferMax - WriteBufferMin, now()),
+    {Offset, _} = rand:uniform(1 + WriteBufferMax - WriteBufferMin),
     WriteBufferSize = WriteBufferMin + Offset,
     Config2 = orddict:store(write_buffer_size, WriteBufferSize, Config),
     Config3 = orddict:erase(write_buffer_size_min, Config2),
@@ -956,17 +964,17 @@ orddict_delta(D1, [], Acc) ->
 %%%===================================================================
 -define(W, 27).
 
--spec bitarray_new(integer()) -> array().
+-spec bitarray_new(integer()) -> hashtree_array().
 bitarray_new(N) -> array:new((N-1) div ?W + 1, {default, 0}).
 
--spec bitarray_set(integer(), array()) -> array().
+-spec bitarray_set(integer(), hashtree_array()) -> hashtree_array().
 bitarray_set(I, A) ->
     AI = I div ?W,
     V = array:get(AI, A),
     V1 = V bor (1 bsl (I rem ?W)),
     array:set(AI, V1, A).
 
--spec bitarray_to_list(array()) -> [integer()].
+-spec bitarray_to_list(hashtree_array()) -> [integer()].
 bitarray_to_list(A) ->
     lists:reverse(
       array:sparse_foldl(fun(I, V, Acc) ->
